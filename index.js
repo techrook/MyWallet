@@ -7,6 +7,7 @@ if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
 const { web5, did: userDid } = await Web5.connect();
 
-module.exports = {
+export{
     web5, userDid
 }
+
