@@ -1,46 +1,110 @@
 import { web5, userDid } from "./index.js";
+import { Ed25519, Jose } from "@web5/crypto";
+import { DidKeyMethod } from "@web5/dids";
+import { VerifiableCredential } from "@web5/credentials";
 
-
-const uploadCredentials=async (vcJwt, issuer) => {
-    //verify credential 
-    try {
-        // await VerifiableCredential.verify(vcJwt)
-        // store credential 
-        const { record } = await web5.dwn.records.create({
-            data: {
-                issuer: issuer,
-                credential: vcJwt,
-                subject:userDid
-            },
-            message: {
-                dataFormat: 'application/json'
-            }
-        });
-        console.log("VC Verification successful!")
-        console.log(record)
-      } catch (e) {
-        console.log(`VC Verification failed: ${e.message}`)
-      }
-    
+class StreetCredibility {
+  constructor(localRespect, legit) {
+    this.localRespect = localRespect;
+    this.legit = legit;
+  }
 }
-//trying to fetch credentials
-let { record } = await web5.dwn.records.read({
-    message: {
-      filter: {
-        author:userDid
-      }
+
+const vc = new VerifiableCredential({
+  type: "StreetCred",
+  issuer: userDid,
+  subject: userDid,
+  data: new StreetCredibility("high", true),
+});
+const uploadCredentials = async (vcJwt, issuer) => {
+  //verify credential
+  try {
+    // await VerifiableCredential.verify(vcJwt)
+    const credentialData = {
+      issuer: issuer,
+      credential: vcJwt,
+      subject: userDid,
+    };
+    // store credential
+    const response = await web5.dwn.records.create({
+      data: credentialData,
+      message: {
+        schema: "http://schema-registry.org/message",
+        dataFormat: "application/json",
+      },
+    });
+    if (response.status.code) {
+      console.log("Credentials uploaded successful!");
+      console.log(response.status.code);
+      return "Credentials uploaded successful!";
     }
-  });
-  
-  // assuming the record has a text payload
-  const text = await record.data.text();
-  console.log(text)
+  } catch (e) {
+    console.log(`Credentials uploaded failed: ${e.message}`);
+  }
+};
+//trying to fetch credentials
+const fetchCredentials = async () => {
+  try {
+    let { records } = await web5.dwn.records.query({
+      message: {
+        filter: {
+          schema: "http://schema-registry.org/message",
+        },
+        dateSort: "createdAscending",
+      },
+    });
 
-const shareCredentials=async () => {
+    records.forEach(async (record) => {
+      const data = await record.data.json();
+      console.log(data);
+      return data;
+    });
+  } catch (e) {
+    console.log(`Credentials retrieve  failed: ${e.message}`);
+  }
+};
 
-    // convert signed credentials to json
-    
-    //share to verufying party
+async function deleteCredential() {
+  let credentials = await fetchCredentials();
+
+  for (const credential of credentials) {
+    let response = await web5.dwn.records.delete({
+      message: {
+        recordId: credential.id,
+      },
+    });
+    console.log(`deleted`);
+  }
 }
+const presentCredential = async () => {};
 
-// uploadCredentials('drivers license', "monday")
+const signCredential = async () => {
+  const issuer = await DidKeyMethod.create();
+  console.log(issuer)
+  const privateKeyJwk = issuer.keySet.verificationMethodKeys && issuer.keySet.verificationMethodKeys[0] && issuer.keySet.verificationMethodKeys[0].privateKeyJwk;
+
+
+  let hexPrivateKey;
+  if (privateKeyJwk) {
+    const privateKey = await Jose.jwkToKey({ key: privateKeyJwk });
+    hexPrivateKey = privateKey.privateKeyHex;
+    // Rest of the code using privateKey
+  } else {
+    console.error('Private key JWK not available');
+  }
+
+  const signOptions = {
+    issuerDid: issuer.did,
+    subjectDid: userDid,
+    kid: `${issuer.did}#${issuer.did.split(":")[2]}`,
+    signer: async (data) => await Ed25519.sign({ data, key: hexPrivateKey }),
+  };
+  const vcJwt = vc.sign(signOptions);
+
+  console.log(vcJwt);
+};
+const verifyCredential = async () => {};
+
+signCredential();
+
+export { fetchCredentials, uploadCredentials };
