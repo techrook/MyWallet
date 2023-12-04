@@ -76,7 +76,17 @@ async function deleteCredential() {
     console.log(`deleted`);
   }
 }
-const presentCredential = async () => {};
+const presentCredential = async () => {
+  try {
+    const vcJwts = await fetchCredentials()
+    const selectedCredentials = PresentationExchange.selectCredentials(
+      vcJwts,
+      presentationDefinition
+  )
+  } catch (error) {
+    
+  }
+};
 
 const signCredential = async () => {
   const issuer = await DidKeyMethod.create();
@@ -98,8 +108,9 @@ const signCredential = async () => {
     signer: async (data) => await Ed25519.sign({ data, key: privateKeyHex }),
   };
   const vcJwt = await vc.sign(signOptions);
+  uploadCredentials(vcJwt, issuer.did)
 
-  return vcJwt;
+  return `credential signed sucessfully.`;
 };
 const verifyCredential = async (vcJwt) => {
   try {
