@@ -80,31 +80,36 @@ const presentCredential = async () => {};
 
 const signCredential = async () => {
   const issuer = await DidKeyMethod.create();
-  console.log(issuer)
-  const privateKeyJwk = issuer.keySet.verificationMethodKeys && issuer.keySet.verificationMethodKeys[0] && issuer.keySet.verificationMethodKeys[0].privateKeyJwk;
+  const privateKeyJwk = issuer.keySet.verificationMethodKeys[0].privateKeyJwk;
 
-
-  let hexPrivateKey;
+  let privateKeyHex;
   if (privateKeyJwk) {
     const privateKey = await Jose.jwkToKey({ key: privateKeyJwk });
-    hexPrivateKey = privateKey.privateKeyHex;
+    privateKeyHex = privateKey.keyMaterial;
     // Rest of the code using privateKey
   } else {
-    console.error('Private key JWK not available');
+    return "Private key JWK not available";
   }
 
   const signOptions = {
     issuerDid: issuer.did,
     subjectDid: userDid,
     kid: `${issuer.did}#${issuer.did.split(":")[2]}`,
-    signer: async (data) => await Ed25519.sign({ data, key: hexPrivateKey }),
+    signer: async (data) => await Ed25519.sign({ data, key: privateKeyHex }),
   };
-  const vcJwt = vc.sign(signOptions);
+  const vcJwt = await vc.sign(signOptions);
 
-  console.log(vcJwt);
+  return vcJwt;
 };
-const verifyCredential = async () => {};
+const verifyCredential = async (vcJwt) => {
+  try {
+    await VerifiableCredential.verify(vcJwt)
+    return "VC Verification successful!"
+  } catch (e) {
+    return `VC Verification failed: ${e.message}`
+  }
+};
 
-signCredential();
 
-export { fetchCredentials, uploadCredentials };
+
+export { fetchCredentials, uploadCredentials, signCredential, verifyCredential };
