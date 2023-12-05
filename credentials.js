@@ -1,7 +1,7 @@
 import { web5, userDid } from "./index.js";
 import { Ed25519, Jose } from "@web5/crypto";
 import { DidKeyMethod } from "@web5/dids";
-import { VerifiableCredential } from "@web5/credentials";
+import { VerifiableCredential,PresentationExchange } from "@web5/credentials";
 
 class StreetCredibility {
   constructor(localRespect, legit) {
@@ -53,38 +53,57 @@ const fetchCredentials = async () => {
         dateSort: "createdAscending",
       },
     });
-
-    records.forEach(async (record) => {
-      const data = await record.data.json();
-      console.log(data);
-      return data;
-    });
+    if (records.length===0){
+      return "no credential stored"
+    } 
+    return records
   } catch (e) {
     console.log(`Credentials retrieve  failed: ${e.message}`);
   }
 };
 
-async function deleteCredential() {
-  let credentials = await fetchCredentials();
-
-  for (const credential of credentials) {
-    let response = await web5.dwn.records.delete({
-      message: {
-        recordId: credential.id,
+async function deleteCredentials() {
+  let { records } = await web5.dwn.records.query({
+    message: {
+      filter: {
+        schema: "http://schema-registry.org/message",
       },
-    });
-    console.log(`deleted`);
-  }
+    },
+  });
+for(let i=0;i<records.length; i++){
+    const record = records[i];
+
+// Delete the record
+const deleteResult = await record.delete();
+if(deleteResult){
+  console.log("deleted")
+}
+}
+return
 }
 const presentCredential = async () => {
   try {
-    const vcJwts = await fetchCredentials()
+    const vcJwts = []
+    const records = await fetchCredentials()
+    const promises = records.map(async (record) => {
+      const data = await record.data.json();
+      vcJwts.push(data);
+    });
+    
+    // Wait for all promises to settle
+    await Promise.all(promises);
+    
+    const presentationDefinition = {
+      subject: userDid
+    }
+    console.log( vcJwts.map((vc) => vc.credential))
     const selectedCredentials = PresentationExchange.selectCredentials(
-      vcJwts,
+      vcJwts.map((vc) => vc.credential),
       presentationDefinition
   )
+  console.log("vcJwts satisfies Presentation Definition!")
   } catch (error) {
-    
+    console.log(`Verification failed: ${error.message}`)
   }
 };
 
@@ -121,6 +140,6 @@ const verifyCredential = async (vcJwt) => {
   }
 };
 
-
+presentCredential()
 
 export { fetchCredentials, uploadCredentials, signCredential, verifyCredential };
