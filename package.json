@@ -10,7 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@web5/api": "^0.8.2"
+    "@web5/api": "^0.8.2",
+    "@web5/credentials": "^0.3.2"
   },
   "type": "module"
 }
